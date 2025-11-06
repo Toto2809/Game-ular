@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Game Ular + Musuh</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #121212;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h1 { margin-bottom: 10px; }
+    .score {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+    canvas {
+      background: #1e1e1e;
+      border: 3px solid #00ff99;
+      z-index: 1;
+    }
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 15px;
+      gap: 10px;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      width: 60px;
+      height: 60px;
+      font-size: 24px;
+      background-color: #333;
+      border: none;
+      border-radius: 10px;
+      color: white;
+      cursor: pointer;
+    }
+    .btn:active { background-color: #00ff99; }
+    #gameOverScreen {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.95);
+      border: 2px solid #00ff99;
+      padding: 30px;
+      border-radius: 10px;
+      text-align: center;
+      z-index: 999;
+    }
+    #gameOverScreen h2 { color: red; }
+    #gameOverScreen button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background-color: #00ff99;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Game Ular + Musuh</h1>
+  <div class="score">Skor: <span id="score">0</span></div>
+  <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+  <div class="controls">
+    <button class="btn" onclick="changeDirection('up')">⬆️</button>
+    <div class="row">
+      <button class="btn" onclick="changeDirection('left')">⬅️</button>
+      <button class="btn" onclick="changeDirection('down')">⬇️</button>
+      <button class="btn" onclick="changeDirection('right')">➡️</button>
+    </div>
+  </div>
+
+  <div id="gameOverScreen">
+    <h2>Game Over!</h2>
+    <p>Skor Akhir: <span id="finalScore">0</span></p>
+    <button onclick="restartGame()">Main Lagi</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const scoreDisplay = document.getElementById("score");
+    const finalScore = document.getElementById("finalScore");
+    const gameOverScreen = document.getElementById("gameOverScreen");
+
+    const box = 20;
+    let snake, food, direction, score, gameInterval;
+    let enemy = { x: 0, y: 0 };
+    let enemyDir = "down";
+
+    function generateRandomPosition() {
+      return {
+        x: Math.floor(Math.random() * (canvas.width / box)) * box,
+        y: Math.floor(Math.random() * (canvas.height / box)) * box
+      };
+    }
+
+    function generateFood() {
+      let newFood;
+      do {
+        newFood = generateRandomPosition();
+      } while (
+        snake.some(seg => seg.x === newFood.x && seg.y === newFood.y) ||
+        (enemy.x === newFood.x && enemy.y === newFood.y)
+      );
+      return newFood;
+    }
+
+    function generateEnemy() {
+      let newEnemy;
+      do {
+        newEnemy = generateRandomPosition();
+      } while (
+        snake.some(seg => seg.x === newEnemy.x && seg.y === newEnemy.y) ||
+        (food.x === newEnemy.x && food.y === newEnemy.y)
+      );
+      return newEnemy;
+    }
+
+    function changeDirection(dir) {
+      if (dir === "up" && direction !== "down") direction = "up";
+      else if (dir === "down" && direction !== "up") direction = "down";
+      else if (dir === "left" && direction !== "right") direction = "left";
+      else if (dir === "right" && direction !== "left") direction = "right";
+    }
+
+    document.addEventListener("keydown", (e) => {
+      const key = e.key;
+      if (key === "ArrowUp") changeDirection("up");
+      else if (key === "ArrowDown") changeDirection("down");
+      else if (key === "ArrowLeft") changeDirection("left");
+      else if (key === "ArrowRight") changeDirection("right");
+    });
+
+    function moveEnemy() {
+      const directions = ["up", "down", "left", "right"];
+      if (Math.random() < 0.3) {
+        enemyDir = directions[Math.floor(Math.random() * directions.length)];
+      }
+
+      let ex = enemy.x;
+      let ey = enemy.y;
+
+      if (enemyDir === "up") ey -= box;
+      else if (enemyDir === "down") ey += box;
+      else if (enemyDir === "left") ex -= box;
+      else if (enemyDir === "right") ex += box;
+
+      // Jangan keluar batas
+      if (ex >= 0 && ex < canvas.width && ey >= 0 && ey < canvas.height) {
+        enemy.x = ex;
+        enemy.y = ey;
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Makanan
+      ctx.fillStyle = "red";
+      ctx.fillRect(food.x, food.y, box, box);
+
+      // Musuh
+      ctx.fillStyle = "orange";
+      ctx.fillRect(enemy.x, enemy.y, box, box);
+
+      // Ular
+      for (let i = 0; i < snake.length; i++) {
+        ctx.fillStyle = i === 0 ? "#00ff99" : "#33ffaa";
+        ctx.fillRect(snake[i].x, snake[i].y, box, box);
+      }
+
+      let head = { ...snake[0] };
+
+      if (direction === "right") head.x += box;
+      else if (direction === "left") head.x -= box;
+      else if (direction === "up") head.y -= box;
+      else if (direction === "down") head.y += box;
+
+      // Game over jika tabrakan
+      if (
+        head.x < 0 || head.y < 0 ||
+        head.x >= canvas.width || head.y >= canvas.height ||
+        snake.slice(1).some(seg => seg.x === head.x && seg.y === head.y) ||
+        (head.x === enemy.x && head.y === enemy.y)
+      ) {
+        clearInterval(gameInterval);
+        finalScore.textContent = score;
+        gameOverScreen.style.display = "block";
+        return;
+      }
+
+      snake.unshift(head);
+
+      if (head.x === food.x && head.y === food.y) {
+        score += 10;
+        scoreDisplay.textContent = score;
+        food = generateFood();
+      } else {
+        snake.pop();
+      }
+
+      moveEnemy();
+    }
+
+    function restartGame() {
+      snake = [{ x: 200, y: 200 }];
+      direction = "right";
+      score = 0;
+      scoreDisplay.textContent = score;
+      food = generateFood();
+      enemy = generateEnemy();
+      gameOverScreen.style.display = "none";
+      clearInterval(gameInterval);
+      gameInterval = setInterval(draw, 120);
+    }
+
+    // Start awal
+    restartGame();
+  </script>
+</body>
+</html>
